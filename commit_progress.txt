@@ -2,4 +2,6 @@
 
 2nd commit v.0.1.1 - created ingest.py to extract text from the academic pdfs file into CSV file so the agent can read and relate to when asked. I also make sure that it can differentiate between normal text and captions. This way the agent can correctly reference to the figure and table within specific pdf file when asked.
 
-3rd commit v0.1.2 - created index.py to turn the data produced by ingest.py into searchable index. We used TF-IDF because it is simple to implement and it is strong when dealing with keywords, which is perfect for academic context. Created search.py as a simple retriever class. This class keep state (vectorizer, matrix, docs) in memory between requests. It provide fast lookups after the first load, which is very simple to read and test.
+3rd commit v.0.1.2 - created index.py to turn the data produced by ingest.py into searchable index. We used TF-IDF because it is simple to implement and it is strong when dealing with keywords, which is perfect for academic context. Created search.py as a simple retriever class. This class keep state (vectorizer, matrix, docs) in memory between requests. It provide fast lookups after the first load, which is very simple to read and test.
+
+4th commit v.0.2.0 - integrated retrieval function from search.py into api.py. We can now test the retrieval function with actual question and see the response. The response should show top-5 relevant chunks and all the info that identify those chunk (source, score, type)
