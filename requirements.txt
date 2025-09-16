@@ -6,3 +6,6 @@ uvicorn[standard]
 
 # for data validation (ensure incoming JSON requests are in the right shape)
 pydantic
+
+# a simple pdf parser (might change to fitz for better performance)
+pypdf
