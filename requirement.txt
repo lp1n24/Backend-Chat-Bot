@@ -1,0 +1,8 @@
+# very simple to set up a REST API with minimal code
+fastapi
+
+# most common way to run FastAPI apps
+uvicorn[standard]
+
+# for data validation (ensure incoming JSON requests are in the right shape)
+pydantic
