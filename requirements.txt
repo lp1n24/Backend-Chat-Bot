@@ -9,3 +9,12 @@ pydantic
 
 # a simple pdf parser (might change to fitz for better performance)
 pypdf
+
+# to gain access to TfidfVectorizer
+scikit-learn
+
+# to save and load the best TfidfVectorizer and the TF-IDF matrix
+joblib
+
+# a common data structure to use with scikit-learn
+numpy

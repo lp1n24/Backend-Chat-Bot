@@ -51,8 +51,7 @@ def extract_pages(pdf_path):
     return page_rows
 
 def main():
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
+    os.makedirs(output_dir, exist_ok=True)
     
     pdfs = find_pdfs(pdf_dir)
 

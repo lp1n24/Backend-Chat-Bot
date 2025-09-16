@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
 # The object that represents the web service
-app = FastAPI(title="Chat-With-PDFs", version="0.1.1", description="pdf parser implemented")
+app = FastAPI(title="Chat-With-PDFs", version="0.1.2", description="index builder and search class implemented")
 
 # This class define a shape for when client sends user question and initialize session_id
 class Ask(BaseModel):
