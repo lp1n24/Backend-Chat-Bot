@@ -5,3 +5,5 @@
 3rd commit v.0.1.2 - created index.py to turn the data produced by ingest.py into searchable index. We used TF-IDF because it is simple to implement and it is strong when dealing with keywords, which is perfect for academic context. Created search.py as a simple retriever class. This class keep state (vectorizer, matrix, docs) in memory between requests. It provide fast lookups after the first load, which is very simple to read and test.
 
 4th commit v.0.2.0 - integrated retrieval function from search.py into api.py. We can now test the retrieval function with actual question and see the response. The response should show top-5 relevant chunks and all the info that identify those chunk (source, score, type)
+
+5th commit v.0.2.1 - created memory and router script to handle per-session memory and to determine the nature of the prompt (out-of-scope, normal retrieval, ambiguous question).
