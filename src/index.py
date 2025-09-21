@@ -31,10 +31,14 @@ def main():
     os.makedirs(index_dir, exist_ok=True)
 
     docs = load_rows(csv_path)
+
+    # We tried with caption before but got worse result, so we will go with page only
+    docs = [d for d in docs if d.get("type") == "page"]
+
     texts = [d["text"] for d in docs]
 
     # Build a simple TF-IDF that drop common english words and ignore words that appear in >90% of docs
-    vectorizer = TfidfVectorizer(stop_words="english", max_df=0.9)
+    vectorizer = TfidfVectorizer(stop_words="english", max_df=0.85, ngram_range=(1, 2), sublinear_tf=True)
     matrix = vectorizer.fit_transform(texts)
 
     # Save artifacts for fast loading at query time

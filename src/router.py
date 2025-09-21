@@ -7,15 +7,17 @@ k_results = 5 # Retrieve top-k chunks for each candidate
 
 low_max = 0.08 # Set threshold to determine the out-of-context query
 low_max_and_avg = (0.15, 0.07) # Another test. Both top1 < 0.15 and avg(top3) < 0.07 then treat it as out-of-context query
+low_confidence = 0.1 # If goes below then retrieval is weak unless not flat
+very_low = 0.08 # If goes below and have flat score then always ask for clarification
 
-flat12_thresh = 0.004 # If the difference between top-1 and 2 is flat then its ambiguous
-flat1avg_thresh = 0.015 # If the avg of top-3 is flat then its ambiguous
-mid_confidence = 0.25 # If scores are flat but max < mid_confidence then its amniguous 
+flat12_percent = 0.12 # If the difference between top-1 and 2 is flat then its ambiguous
+flat1avg_percent = 0.25 # If the avg of top-3 is flat then its ambiguous
+mid_confidence = 0.18 # If scores are flat but max < mid_confidence then its amniguous 
 
 oos_ratio = 0.6 # >60% of tokens are not in the TF-IDF vocab
 oos_max = 0.25 # Max similarity to use in Out-Of-Scope condition
 
-min_idf = 1.2 # Ignore tokens that appear frequently in most PDFs
+min_idf = 1.3 # Ignore tokens that appear frequently in most PDFs
 
 # Build a mapping (term: idf score) from trained vectorizer to use in deciding which tokens are meaningful
 def build_idf_map(vectorizer):
@@ -52,6 +54,13 @@ def scores_only(found):
         scores.append(float(f["score"]))
     scores.sort(reverse=True)
     return scores
+
+def tokens(s):
+    return {w for w in re.split(r"\W+", (s or "").lower()) if len(w) >= 3}
+
+# To see if the query contains something like author name that matches the PDF filename
+def pdf_hint(query, source_name):
+    return len(tokens(query) & tokens(source_name)) > 0
 
 # Summarize retrieval scores to help in decision making (out-of-context, ask for clarification, or normal retrieval)
 def summary(scores):
@@ -101,6 +110,13 @@ def specific_token_count(text, vectorizer, min_idf=1.5):
         if idf_map.get(w, 0.0) >= min_idf:
             count += 1
     return count
+
+# To check how many distinct PDF sources are represented in the retrieved list
+def source_diversity(found, top_n=5):
+    try:
+        return len({f.get("source", "") for f in (found or [])[:top_n] if f.get("source")})
+    except Exception:
+        return 0
 
 # The main routing function (entry point used by the api script).
 def route(question, retriever, history=None, k=k_results):
@@ -156,13 +172,6 @@ def route(question, retriever, history=None, k=k_results):
     scored.sort(key=lambda item: (item["max"], item["avg3"]), reverse=True)
     best = scored[0] if len(scored) > 0 else None
 
-    # Find max score of raw query candidate
-    raw_max = 0.0
-    for item in scored:
-        if item["label"] == "raw":
-            raw_max = item["max"]
-            break
-
     # Choose actions based on the score we got
     # If no retrieval results OR system picked raw query over past context AND
     # the differences between top-1 and top-2 is too close OR
@@ -179,8 +188,15 @@ def route(question, retriever, history=None, k=k_results):
 
     oos_query = oov_ratio(q, retriever.vectorizer.vocabulary_.keys())
 
-    # Out-of-scope: just need one out of two rules to trigger
-    if (max_score < low_max) or (max_score < low_max_and_avg[0] and avg3 < low_max_and_avg[1]) or (oos_query >= oos_ratio and max_score < oos_max):
+    # If the query mentions any of the top sources then its not out-of-scope
+    hinted = any(pdf_hint(q, f.get("source", "")) for f in (best["found"] or [])[:3])
+
+    # Out-of-scope: only trigger if not hinted
+    if (not hinted) and (
+        (max_score < low_max)
+        or (max_score < low_max_and_avg[0] and avg3 < low_max_and_avg[1])
+        or (oos_query >= oos_ratio and max_score < oos_max)
+    ):
         return {
             "action": "web_search",
             "reason": "low similarity to the provided PDFs",
@@ -189,15 +205,57 @@ def route(question, retriever, history=None, k=k_results):
             "query": best["query"]
         }
     
+    try:
+        top_found = (best["found"] or [])[0]
+    except Exception:
+        top_found = None
+
+    # If the query is specific enough and point to specific source then use that source
+    if q_specific > query_specific:
+        if top_found and pdf_hint(q, top_found.get("source", "")):
+            return {
+                "action": "retrieve_pdfs",
+                "reason": "query mentions this PDF; prioritizing that source",
+                "used_context": best["label"],
+                "scores": best["scores"],
+                "query": best["query"],
+                "found": best["found"],
+            }
+
+    
     # Ambiguous: system picked raw query AND either the scores are flat but max score is not high
     # OR the query lacks specific tokens
     if best["label"] == "raw":
         top1 = max_score
         top2 = best["scores"][1] if len(best["scores"]) > 1 else 0.0
-        flat12 = (top1 - top2) < flat12_thresh
-        flat1avg = (top1 - avg3) < flat1avg_thresh
-        vague = q_specific <= query_specific 
-        if ((flat12 or flat1avg) and (top1 < mid_confidence)) or vague:
+        percent_based = max(top1, 1e-9)
+        flat12 = ((top1 - top2) / percent_based) < flat12_percent
+        flat1avg = ((top1 - avg3) / percent_based) < flat1avg_percent
+        vague = q_specific <= query_specific
+
+        diverse_sources = source_diversity(best["found"], top_n=5) >= 2
+
+        if top1 < very_low and (flat12 or flat1avg or diverse_sources):
+            return {
+                "action": "clarify",
+                "message": "Could you be more specific?",
+                "reason": "retrieval confidence is very low and top results are flat",
+                "used_context": best["label"],
+                "scores": best["scores"],
+                "query": best["query"],
+            }
+
+        if top1 < low_confidence and (flat12 or flat1avg):
+            return {
+                "action": "clarify",
+                "message": "Could you be more specific?",
+                "reason": "retrieval confidence is low and top results are close",
+                "used_context": best["label"],
+                "scores": best["scores"],
+                "query": best["query"],
+            }
+
+        if ((flat12 or flat1avg) and (top1 < mid_confidence)) or vague or (diverse_sources and (flat12 or flat1avg)):
             return {
                 "action": "clarify",
                 "message": "Could you be more specific?",
@@ -206,7 +264,6 @@ def route(question, retriever, history=None, k=k_results):
                 "scores": best["scores"],
                 "query": best["query"]
             }
-
     
     # Otherwise: confident retrieval from the provided PDFs
     return {

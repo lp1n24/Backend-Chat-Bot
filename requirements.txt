@@ -18,3 +18,13 @@ joblib
 
 # a common data structure to use with scikit-learn
 numpy
+
+# use langchain to connect this chatbot with openai using openai api key
+langchain-openai
+langchain-core
+openai
+
+# For using web search
+langchain-community
+ddgs
+duckduckgo-search

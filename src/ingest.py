@@ -42,9 +42,11 @@ def extract_pages(pdf_path):
             page_text = " ".join(lines)
             page_rows.append((i + 1, "page", page_text))
 
-            for line in lines:
+            # Capture caption
+            for i, line in enumerate(lines):
                 if caption_re.match(line):
-                    page_rows.append((i + 1, "caption", line))
+                    caption_text = line.strip()
+                    page_rows.append((i + 1, "caption", caption_text))
     
     except Exception as e:
         print("could not read", pdf_path, ":", e)
