@@ -1,4 +1,4 @@
-This project is a backend question-answering chatbot. Here is the list of waht this chatbot can do:
+This project is a backend question-answering chatbot. Here is the list of what this chatbot can do:
 - Read and store information from PDFs.
 - Answer user questions by looking inside the stored PDFs.
 - Ask for clarification if the question is not clear.
