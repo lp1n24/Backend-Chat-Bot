@@ -22,3 +22,18 @@ class SessionMemory:
     def clear(self, session_id):
         if session_id in self.history:
             del self.history[session_id]
+
+# Expose the helper functions
+store = SessionMemory(max_turns=10)
+
+def add_user(session_id: str, question: str):
+    store.add_user(session_id, question)
+
+def add_agent(session_id: str, answer: str):
+    store.add_agent(session_id, answer)
+
+def get(session_id: str):
+    return store.get(session_id)
+
+def clear(session_id: str):
+    store.clear(session_id)

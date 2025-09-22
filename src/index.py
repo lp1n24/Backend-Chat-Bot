@@ -37,7 +37,7 @@ def main():
 
     texts = [d["text"] for d in docs]
 
-    # Build a simple TF-IDF that drop common english words and ignore words that appear in >90% of docs
+    # Build a simple TF-IDF that drop common english words and ignore words that appear in >85% of docs
     vectorizer = TfidfVectorizer(stop_words="english", max_df=0.85, ngram_range=(1, 2), sublinear_tf=True)
     matrix = vectorizer.fit_transform(texts)
 

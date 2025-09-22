@@ -1,5 +1,6 @@
 import os
 import re
+import logging
 from textwrap import dedent
 from urllib.parse import quote_plus
 from langchain_openai import ChatOpenAI
@@ -7,7 +8,10 @@ from langchain_core.messages import HumanMessage
 from langchain_community.utilities import DuckDuckGoSearchAPIWrapper
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+from src.log import setup as setup_logging
 
+setup_logging()
+logger = logging.getLogger("llm")
 
 # For creating a compact evidence string for prompting the LLM
 def format_evidence(found, max_items=8, max_chars=None):
@@ -155,12 +159,6 @@ def web_snippets(query, max_results = 5):
 
     return items, "\n\n".join(lines)
 
-# For debugging search_self function
-debug_self = (os.getenv("DEBUG_SELF_SEARCH", "1") != "0")
-def debug(*args):
-    if debug_self:
-        print("[self_search]", *args, flush=True)
-
 # This function allow the agent to request search.
 # The llm agent can ask for search by replies with 'SEARCH: <query>'
 # We set a cap for number of search per query to avoid infinite loop of searching (llm may spam SEARCH)
@@ -203,7 +201,6 @@ def self_search(llm, *, system_rules, question, context="", evidence="", max_rou
 
     # Ask with what we already have (round 0)
     reply = ask_with(combined_block)
-    debug("First reply:", reply)
 
     for round_index in range(max_rounds):
         m = re.match(r"(?is)^[`\s>]*search\s*:\s*(.+)$", reply)
@@ -211,34 +208,23 @@ def self_search(llm, *, system_rules, question, context="", evidence="", max_rou
             return reply, gathered_items
 
         query = m.group(1).strip().strip('"').strip("'")
-        debug(f"Round {round_index+1} – parsed query:", query)
 
         # Loop guards
         normal_query = query.lower()
         if not normal_query:
-            debug("Empty query – stopping.")
             break
         if normal_query in seen_queries:
-            debug("Repeated query – stopping.")
             break
         seen_queries.add(normal_query)
 
         # Do web search and add snippets
         items, block = web_snippets(query, max_results=results_per_round)
-        debug(f"web results: {len(items)}")
-        for i, it in enumerate(items, 1):
-            debug(f"  [{i}] {it.get('title','').strip()} | {it.get('link','').strip()}")
-
-        if not items:
-            debug("No results for this round – stopping.")
-            break
 
         gathered_items.extend(items)
         combined_block = (combined_block + ("\n\n" if combined_block else "") + block).strip()
 
         # Ask again with bigger evidence pools
         reply = ask_with(combined_block)
-        debug("Answer after adding snippets:", reply[:500])
 
     # Force answer if we see SEARCH query after we existing the loop (another safe guard)
     if re.match(r"(?is)^[`\s>]*search\s*:", reply):
@@ -259,7 +245,6 @@ def self_search(llm, *, system_rules, question, context="", evidence="", max_rou
         """)
         response = llm.invoke([HumanMessage(content=final_prompt)])
         forced = (getattr(response, "content", "") or "").strip()
-        debug("Forced final:", forced[:500])
         if forced and not re.match(r"(?is)^[`\s>]*search\s*:", forced):
             return forced, gathered_items
 
@@ -269,9 +254,11 @@ def self_search(llm, *, system_rules, question, context="", evidence="", max_rou
 
 # Normal PDF retrieval path. Uses langchain-openai if OPENAI_API_KEY is set, otherwise falls back to local
 def llm_answer(question, found, history=None):
+    logger.info("llm_answer called", extra={"question": question})
     try:
         api_key = (os.getenv("OPENAI_API_KEY") or "").strip()
         if not api_key:
+            logger.warning("No API key found, falling back to local_answer")
             return local_answer(found)
 
         evidence = format_evidence(found)
@@ -305,9 +292,11 @@ def llm_answer(question, found, history=None):
             evidence=evidence
         )
 
+        logger.info("llm_answer success", extra={"used_evidence": bool(evidence)})
         return {"answer": text, "citations": citations(found), "mode": "llm", "evidence": web_items}
 
-    except Exception:
+    except Exception as e:
+        logger.info("llm_answer success", extra={"used_evidence": bool(evidence)})
         return local_answer(found)
 
 # An entrypoint the API calls when router decided its PDF retrieval path
@@ -316,9 +305,11 @@ def compose_answer(question, found, history=None):
 
 # Clarification path. Use same structure as the normal PDF retrieval path
 def llm_clarify(question, history=None):
+    logger.info("llm_clarify called", extra={"question": question})
     try:
         api_key = (os.getenv("OPENAI_API_KEY") or "").strip()
         if not api_key:
+            logger.warning("No API key found, falling back to local_clarify")
             return local_clarify()
         
         context = history_block(question, history)
@@ -358,9 +349,11 @@ def llm_clarify(question, history=None):
             evidence="" 
         )
 
+        logger.info("llm_clarify success")
         return {"answer": text, "citations": [], "mode": "llm"}
 
-    except Exception:
+    except Exception as e:
+        logger.error("llm_clarify failed", extra={"error": str(e)})
         return local_clarify()
 
 def compose_clarify(question, history=None):
@@ -369,6 +362,7 @@ def compose_clarify(question, history=None):
 # Out of Scope path. Use same structure as other route except it has web search capability
 # Use same score and ranknig system as in search.py (TF-IDF + cosine)
 def llm_web_answer(question, history=None):
+    logger.info("llm_web_answer called", extra={"question": question})
     try:
         # Fetch a few candidate results
         search = DuckDuckGoSearchAPIWrapper(
@@ -388,6 +382,7 @@ def llm_web_answer(question, history=None):
 
         # Local fallback if there is no search result
         if not candidates:
+            logger.warning("No web candidates found, using local_web fallback")
             return local_web()
 
         # Rank candidates with the same idea as search.py
@@ -457,9 +452,11 @@ def llm_web_answer(question, history=None):
         # If the second search is better then use it
         final_web = more_web or web_items
 
+        logger.info("llm_web_answer success", extra={"results": len(final_web)})
         return {"answer": text, "citations": [], "mode": "llm", "evidence": final_web}
 
-    except Exception:
+    except Exception as e:
+        logger.error("llm_web_answer failed", extra={"error": str(e)})
         return local_web()
 
 def compose_web(question, history=None):

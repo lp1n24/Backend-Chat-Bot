@@ -28,3 +28,6 @@ openai
 langchain-community
 ddgs
 duckduckgo-search
+
+# Use langgraph to orchestrate the existing components
+langgraph
