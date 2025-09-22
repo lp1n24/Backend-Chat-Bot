@@ -130,6 +130,6 @@ Future Work:
 6. Evaluation system:
    - Use automatic evaluation system that check for quantitative aspect like accuracy, relevance, latency, etc.
    - This let developer to measure the overall performance of the system after every updates.
-   - it prevents developer to push worse updates
+   - It prevents developer to push worse updates
 
 
