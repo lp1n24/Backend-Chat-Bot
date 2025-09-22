@@ -58,11 +58,17 @@ How to run locally with docker-compose:
    - git clone https://github.com/lp1n24/backend-chat-bot.git
    - cd Backend-Chat-Bot
 3. Edit docker-compose.yml file to enable LLM using your OpenAI API key.
+   - In your opened terminal, use notepad for simple editing:
+     - notepad docker-compose.yml
    - Inside the docker-compose.yml file you will see OPEN_API_KEY: "your_api_key_here".
    - Insert your own OpenAI API key in place of "your_api_key_here" (e.g., OPEN_API_KEY: "sk-...").
 4. Inside terminal type these command
-   - For Windows: docker-compose up --build
-   - For Linux/Mac: docker compose up --build
+   - For Windows: 
+     - docker compose build
+     - docker compose up
+   - For Linux/Mac:
+     - docker-compose build
+     - docker-compose up
 5. After the container starts, go to web browser and type:
    - http://127.0.0.1:8000/docs
    This will navigate you to where the API runs on.
