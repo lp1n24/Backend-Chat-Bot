@@ -92,7 +92,7 @@ How to use our "Backend-Chat-Bot":
 
 Design Trade-offs:
 1. TF-IDF retriever:
-   - We used TFiIDF instead of embeddings for retrieval.
+   - We used TF-IDF instead of embeddings for retrieval.
    - It is fast, lightweight, and easy to set up.
    - It is suitable in academic context.
    - The trade-off is lower accuracy for semantic queries since it only matches keywords but not the actual meaning.
