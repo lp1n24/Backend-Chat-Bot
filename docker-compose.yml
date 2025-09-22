@@ -1,0 +1,14 @@
+services:
+  app:
+    build: .
+    container_name: chatbot_app
+    ports:
+      - "8000:8000"
+    environment:
+      # For reviewer: please replce "your_api_key_here" with your actual OpenAI API key ("sk-...")
+      OPENAI_API_KEY: "your_api_key_here"
+      # Log level for the app logs (use INFO for default): DEBUG, INFO
+      LOG_LEVEL: "INFO"
+    volumes:
+      # Allow the container to see the data folder so the container can read PDFs and write pages.csv
+      - ./data:/app/data

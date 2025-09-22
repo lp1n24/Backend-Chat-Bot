@@ -9,7 +9,7 @@ setup_logging()
 logger = logging.getLogger("api")
 
 # The object that represents the web service
-app = FastAPI(title="Chat-With-PDFs", version="0.3.0", description="FastAPI + LangGraph multi-agent")
+app = FastAPI(title="Backend-Chat-Bot", version="0.4.0", description="Completed prototype")
 
 # Request bodies
 class Ask(BaseModel):
