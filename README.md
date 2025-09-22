@@ -37,8 +37,8 @@ Here is a simple architecture diagram that shows how the system works.
          |                   |                   |
          v                   v                   v
       PDF Agent         Clarify Agent         Web Agent
-   - search pages.csv   - ask user        - use snippets from
-   for answer           questions         web search for answer
+    - search pages.csv   - ask user        - use snippets from
+    for answer           questions         web search for answer
          |                   |                   |
          + - - - - - > Session Memory <- - - - - +
                              |
